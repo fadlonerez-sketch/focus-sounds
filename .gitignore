@@ -1,0 +1,12 @@
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+.cxx/
+# Downloaded source recordings are fetched by tools/fetch_sources.py (hash-verified), not committed.
+tools/sources/
+tools/work/
+__pycache__/

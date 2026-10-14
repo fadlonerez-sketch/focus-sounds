@@ -130,7 +130,7 @@ fun <T> SegmentedControl(
             .then(if (fill) Modifier.fillMaxWidth() else Modifier)
             .horizontalScroll(scroll)
             .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         options.forEach { o ->
             val isSel = o.value == selected
@@ -145,7 +145,7 @@ fun <T> SegmentedControl(
                         onSelect(o.value)
                     }
                     .heightIn(min = 40.dp)
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
                     .semantics { if (o.description != null) contentDescription = o.description },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,

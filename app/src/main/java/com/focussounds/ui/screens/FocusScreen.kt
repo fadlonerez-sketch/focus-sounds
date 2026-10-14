@@ -174,7 +174,7 @@ private fun IdleView(vm: FocusViewModel, volume: Float, playerAvailable: Boolean
         SegmentedControl(
             options = listOf(SegmentOption<Int?>(null, "None", AppIcons.Infinity, "No timer")) +
                 Limits.PRESET_MINUTES.map { SegmentOption<Int?>(it, "$it min") } +
-                SegmentOption<Int?>(-1, if (custom != null) "${custom} min" else "Custom", AppIcons.Edit),
+                SegmentOption<Int?>(-1, if (custom != null) "${custom} min" else "", AppIcons.Edit, "Custom duration"),
             selected = custom?.let { -1 } ?: sel.timerMinutes,
             onSelect = { if (it == -1) showCustom = true else vm.selectTimer(it) },
             modifier = Modifier.testTag("timer_selector"),

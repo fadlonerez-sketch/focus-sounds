@@ -444,6 +444,9 @@ class ProgressAnalyticsTest {
         assertEquals(1, bins["45–60"])
         assertEquals(1, bins["90+"])
         assertEquals(4, r.sessionLengths.sumOf { it.sessions })
+
+        val withRunning = analytics(listOf(fact(today, activeMin = 3.0, outcome = null))).report(RangePreset.TODAY)
+        assertEquals("a running session's length is not final", 0, withRunning.sessionLengths.sumOf { it.sessions })
     }
 
     @Test
@@ -458,7 +461,8 @@ class ProgressAnalyticsTest {
         assertTrue(InsightKind.LONGEST_SESSION in kinds)
         assertTrue(InsightKind.RECORD_DAY in kinds)
         val goal = r.insights.first { it.kind == InsightKind.GOAL }
-        assertEquals("Daily goal met on 1 of 7 days", goal.title)
+        // Today (30 min, goal 60) is not over yet, so it is not judged.
+        assertEquals("Daily goal met on 1 of 6 days", goal.title)
         val streak = r.insights.first { it.kind == InsightKind.STREAK }
         assertEquals("21-day focus streak", streak.title)
         assertNotNull(r.bestDay)

@@ -114,7 +114,8 @@ fun ProgressScreen(vm: ProgressViewModel, onStartFocus: () -> Unit) {
         item(key = "ranges") {
             SegmentedControl(
                 options = RangePreset.entries.map { p ->
-                    SegmentOption(p, if (p == RangePreset.CUSTOM) "Custom" else p.label, if (p == RangePreset.CUSTOM) AppIcons.Calendar else null)
+                    if (p == RangePreset.CUSTOM) SegmentOption(p, "", AppIcons.Calendar, "Custom date range")
+                    else SegmentOption(p, p.short, description = p.label)
                 },
                 selected = state.query.preset,
                 onSelect = { if (it == RangePreset.CUSTOM) showCustom = true else vm.setPreset(it) },
@@ -308,9 +309,10 @@ private fun GoalBlock(label: String, progress: Pair<Long, Long>?, modifier: Modi
         Column {
             Text(label, style = MaterialTheme.typography.labelMedium, color = c.textTertiary)
             Text(Durations.short(done), style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), color = c.textPrimary, maxLines = 1)
+            Text("of ${Durations.short(goal)}", style = MaterialTheme.typography.labelSmall, color = c.textTertiary, maxLines = 1)
             Text(
-                if (met) "Goal ${Durations.short(goal)} reached" else "${Durations.short(goal - done)} to ${Durations.short(goal)}",
-                style = MaterialTheme.typography.labelSmall, color = if (met) c.accentContent else c.textTertiary, maxLines = 2,
+                if (met) "Reached" else "${Durations.short(goal - done)} left",
+                style = MaterialTheme.typography.labelSmall, color = if (met) c.accentContent else c.textSecondary, maxLines = 1,
             )
         }
     }
@@ -418,7 +420,10 @@ private fun BarsCard(r: ProgressReport, onResolution: (Resolution) -> Unit) {
         else -> "Monthly focus"
     }
     FocusCard(Modifier.fillMaxWidth().testTag("bars_card")) {
-        SectionHeader(title, subtitle = if (goalMin != null) "Solid bars reached the goal" else "Tap a bar for details")
+        SectionHeader(
+            title,
+            subtitle = if (goalMin != null) "Dashed line: ${Durations.short(r.barGoalMs!!)} goal · solid bars reached it" else "Tap a bar for details",
+        )
         if (r.barResolutions.size > 1) {
             Spacer(Modifier.height(12.dp))
             SegmentedControl(r.barResolutions.map { SegmentOption(it, it.label) }, res, onResolution, fill = false)
@@ -430,7 +435,6 @@ private fun BarsCard(r: ProgressReport, onResolution: (Resolution) -> Unit) {
             BarChart(
                 data,
                 goal = goalMin,
-                goalLabel = goalMin?.let { "Goal ${Durations.short(r.barGoalMs!!)}" },
                 summary = chartSummary(title, data),
                 highlightMax = goalMin == null,
             )

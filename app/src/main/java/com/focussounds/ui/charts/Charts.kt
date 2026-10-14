@@ -113,7 +113,7 @@ fun TrendChart(
             },
     ) {
         if (data.isEmpty()) return@Canvas
-        val plot = Plot(40.dp.toPx(), 12.dp.toPx(), size.width - 6.dp.toPx(), size.height - 24.dp.toPx())
+        val plot = Plot(40.dp.toPx(), 18.dp.toPx(), size.width - 12.dp.toPx(), size.height - 24.dp.toPx())
         fun y(v: Float) = plot.bottom - (v / scale.max.toFloat()) * plot.height
         fun x(i: Int) = if (data.size == 1) plot.left + plot.width / 2 else plot.left + plot.width * i / (data.size - 1)
 
@@ -185,7 +185,6 @@ fun BarChart(
     height: Dp = 200.dp,
     axis: AxisKind = AxisKind.MINUTES,
     goal: Double? = null,
-    goalLabel: String? = null,
     summary: String,
     highlightMax: Boolean = false,
 ) {
@@ -201,7 +200,6 @@ fun BarChart(
     val tipTitle = MaterialTheme.typography.labelMedium.copy(color = c.textSecondary)
     val tipBody = MaterialTheme.typography.titleSmall.copy(color = c.textPrimary, fontFeatureSettings = "tnum")
     val tipNote = MaterialTheme.typography.labelSmall.copy(color = c.warning)
-    val goalStyle = MaterialTheme.typography.labelSmall.copy(color = c.accentContent, fontWeight = FontWeight.SemiBold)
 
     Canvas(
         modifier
@@ -221,7 +219,7 @@ fun BarChart(
             },
     ) {
         if (data.isEmpty()) return@Canvas
-        val plot = Plot(40.dp.toPx(), 14.dp.toPx(), size.width, size.height - 24.dp.toPx())
+        val plot = Plot(40.dp.toPx(), 18.dp.toPx(), size.width, size.height - 24.dp.toPx())
         fun y(v: Float) = plot.bottom - (v / scale.max.toFloat()) * plot.height
         scale.ticks.forEach { t ->
             val yy = y(t.toFloat())
@@ -261,12 +259,6 @@ fun BarChart(
             val gy = y(goal.toFloat())
             drawLine(c.accentContent, Offset(plot.left, gy), Offset(plot.right, gy), 1.5.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())))
-            goalLabel?.let {
-                val l = measurer.measure(it, goalStyle)
-                drawRoundRect(c.background.copy(alpha = 0.85f), Offset(plot.right - l.size.width - 10.dp.toPx(), gy - l.size.height - 4.dp.toPx()),
-                    Size(l.size.width + 8.dp.toPx(), l.size.height.toFloat()), CornerRadius(4.dp.toPx()))
-                drawText(l, topLeft = Offset(plot.right - l.size.width - 6.dp.toPx(), gy - l.size.height - 4.dp.toPx()))
-            }
         }
         if (selected in data.indices) {
             val d = data[selected]

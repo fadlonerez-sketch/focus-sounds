@@ -67,14 +67,14 @@ data class AnalyticsSettings(
     val weeklyGoalMs: Long?,
 )
 
-enum class RangePreset(val label: String) {
-    TODAY("Today"),
-    LAST_7_DAYS("7 days"),
-    LAST_30_DAYS("30 days"),
-    LAST_90_DAYS("90 days"),
-    LAST_12_MONTHS("12 months"),
-    ALL_TIME("All time"),
-    CUSTOM("Custom"),
+enum class RangePreset(val label: String, val short: String) {
+    TODAY("Today", "Today"),
+    LAST_7_DAYS("7 days", "7D"),
+    LAST_30_DAYS("30 days", "30D"),
+    LAST_90_DAYS("90 days", "90D"),
+    LAST_12_MONTHS("12 months", "12M"),
+    ALL_TIME("All time", "All"),
+    CUSTOM("Custom", "Custom"),
 }
 
 enum class Resolution(val label: String) { HOUR("Hourly"), DAY("Daily"), WEEK("Weekly"), MONTH("Monthly"), YEAR("Yearly") }
@@ -521,7 +521,9 @@ class ProgressAnalytics(facts: List<SessionFact>, private val s: AnalyticsSettin
     private fun histogram(inRange: List<Item>): List<HistogramBin> = HISTOGRAM_EDGES.mapIndexed { i, from ->
         val to = HISTOGRAM_EDGES.getOrNull(i + 1)
         val label = if (to == null) "$from+" else "$from–$to"
+        // A running session's length is not final yet, so it is not binned.
         HistogramBin(label, from, to, inRange.count {
+            if (it.fact.inProgress) return@count false
             val min = it.fact.activeMs / 60_000.0
             min >= from && (to == null || min < to)
         })
@@ -627,10 +629,12 @@ class ProgressAnalytics(facts: List<SessionFact>, private val s: AnalyticsSettin
                     "${Durations.format(su.activeMs)} of active playback across ${su.sessions} ${plural(su.sessions, "session")} (${Durations.percent(su.fraction)}).")
             }
         }
-        if (r.goalDays.isNotEmpty() && r.range.days > 1) {
-            val met = r.goalDays.count { it.met }
-            out += Insight(InsightKind.GOAL, "Daily goal met on $met of ${r.goalDays.size} ${plural(r.goalDays.size, "day")}",
-                "Goal: ${Durations.format(r.goalDays.first().goalMs)} per day. Days before you started using the app are not counted.")
+        // Today only counts once its goal is met: the day is not over yet.
+        val judgedDays = r.goalDays.filter { it.date != r.today || it.met }
+        if (judgedDays.isNotEmpty() && r.range.days > 1) {
+            val met = judgedDays.count { it.met }
+            out += Insight(InsightKind.GOAL, "Daily goal met on $met of ${judgedDays.size} ${plural(judgedDays.size, "day")}",
+                "Goal: ${Durations.format(judgedDays.first().goalMs)} per day. Days before you started using the app, and today until its goal is met, are not counted.")
         }
         if (r.streaks.current >= 2) {
             val detail = if (r.streaks.current >= r.streaks.longest) "This is your longest streak so far." else "Your longest is ${r.streaks.longest} days."

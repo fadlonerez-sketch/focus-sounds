@@ -122,7 +122,7 @@ class HistoryViewModel(c: AppContainer) : ViewModel() {
         val matches = facts.filter { core.matches(it, zone) }.sortedByDescending { it.startedAtMs }
         val counted = facts.filter { it.counted }
         HistoryUi(
-            days = matches.groupBy { date(it) }.map { (d, list) -> HistoryDay(d, list.filter { it.counted }.sumOf { it.activeMs }, list) },
+            days = matches.groupBy { date(it) }.map { (d, list) -> HistoryDay(d, list.filter { it.counted && !it.inProgress }.sumOf { it.activeMs }, list) },
             matchCount = matches.size,
             matchMs = matches.filter { it.counted }.sumOf { it.activeMs },
             todayMs = counted.filter { date(it) == today }.sumOf { it.activeMs },
@@ -194,7 +194,12 @@ fun HistoryScreen(vm: HistoryViewModel, onStartFocus: () -> Unit) {
             item(key = "d${day.date}") {
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(dayTitle(day.date), style = MaterialTheme.typography.titleSmall, color = c.textPrimary, modifier = Modifier.weight(1f).semantics { heading() })
-                    Text("${Durations.format(day.totalMs)} · ${sessionsLabel(day.sessions.size)}", style = MaterialTheme.typography.labelMedium, color = c.textTertiary)
+                    val running = day.sessions.count { it.inProgress }
+                    val finished = day.sessions.count { it.counted && !it.inProgress }
+                    Text(
+                        "${Durations.format(day.totalMs)} · ${sessionsLabel(finished)}" + if (running > 0) " · $running running" else "",
+                        style = MaterialTheme.typography.labelMedium, color = c.textTertiary,
+                    )
                 }
             }
             items(day.sessions, key = { it.id }) { SessionCard(it, day.date, AppIcons.forBuiltIn(state.builtInKeys[it.activityKey])) }
@@ -307,7 +312,12 @@ private fun SessionCard(f: SessionFact, day: LocalDate, icon: androidx.compose.u
             }
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(Durations.format(f.activeMs), style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), color = c.textPrimary)
+                // A running session's saved time lags behind; the live timer is on the Focus screen.
+                Text(
+                    if (f.inProgress) "Live" else Durations.format(f.activeMs),
+                    style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
+                    color = if (f.inProgress) c.accentContent else c.textPrimary,
+                )
                 Text(f.plannedDurationMs?.let { "of ${Durations.format(it)}" } ?: "no timer", style = MaterialTheme.typography.labelSmall, color = c.textTertiary)
             }
         }

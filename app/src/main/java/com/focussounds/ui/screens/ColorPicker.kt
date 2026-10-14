@@ -47,9 +47,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -240,7 +245,6 @@ private fun SaturationValuePad(hue: Float, sat: Float, value: Float, modifier: M
     val hueColor = Color(ColorMath.fromHsv(hue, 1f, 1f))
     Canvas(
         modifier
-            .clip(RoundedCornerShape(18.dp))
             .semantics { contentDescription = "Saturation ${(sat * 100).toInt()} percent, brightness ${(value * 100).toInt()} percent" }
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -254,9 +258,12 @@ private fun SaturationValuePad(hue: Float, sat: Float, value: Float, modifier: M
                 }
             },
     ) {
-        drawRect(hueColor)
-        drawRect(Brush.horizontalGradient(listOf(Color.White, Color.White.copy(alpha = 0f))))
-        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0f), Color.Black)))
+        val shape = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(18.dp.toPx()))) }
+        clipPath(shape) {
+            drawRect(hueColor)
+            drawRect(Brush.horizontalGradient(listOf(Color.White, Color.White.copy(alpha = 0f))))
+            drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0f), Color.Black)))
+        }
         val p = Offset(sat * size.width, (1 - value) * size.height)
         drawCircle(Color.Black.copy(alpha = 0.35f), 15.dp.toPx(), p)
         drawCircle(Color.White, 13.dp.toPx(), p, style = Stroke(3.dp.toPx()))
@@ -269,7 +276,6 @@ private fun HueBar(hue: Float, modifier: Modifier, onChange: (Float) -> Unit) {
     val hues = remember { (0..6).map { Color(ColorMath.fromHsv(it * 60f, 1f, 1f)) } }
     Canvas(
         modifier
-            .clip(RoundedCornerShape(14.dp))
             .semantics { contentDescription = "Hue ${hue.toInt()} degrees" }
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -293,7 +299,16 @@ private fun HueBar(hue: Float, modifier: Modifier, onChange: (Float) -> Unit) {
 @Composable
 fun AppearancePreview(modifier: Modifier = Modifier) {
     val c = FocusTheme.colors
-    FocusCard(modifier) {
+    FocusCard(
+        modifier
+            .clearAndSetSemantics { contentDescription = "Preview of the accent color on app components" }
+            .pointerInput(Unit) {
+                // Swallow touches: the sample controls are illustrations only.
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                }
+            },
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ProgressRing(0.62f, size = 64.dp, stroke = 7.dp) {
                 Text("62%", style = MaterialTheme.typography.labelMedium, color = c.textPrimary)

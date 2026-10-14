@@ -10,6 +10,10 @@ import com.focussounds.data.FocusDatabase
 import com.focussounds.data.HistoryRepository
 import com.focussounds.data.Prefs
 import com.focussounds.data.RoomSessionStore
+import com.focussounds.data.SessionFactsRepository
+import com.focussounds.data.SettingsRepository
+import com.focussounds.playback.CompletionFeedback
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,20 +29,35 @@ class FocusApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
+        container = AppContainer(this, storageSuffix)
+    }
+
+    companion object {
+        /**
+         * Set by the instrumented-test runner before onCreate so tests use their own database and
+         * preferences and can never touch the user's real history.
+         */
+        @Volatile
+        var storageSuffix: String = ""
     }
 }
 
 /** Process-wide singletons. The engine outlives activities and the playback service. */
-class AppContainer(app: Application) {
+class AppContainer(val app: Application, storageSuffix: String = "") {
     /** Main-thread scope: the engine and ExoPlayer both live on the main thread. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val wallClock = WallClock { System.currentTimeMillis() }
 
-    val database = FocusDatabase.open(app)
-    val prefs = Prefs(app)
+    val database = FocusDatabase.open(app, "focus$storageSuffix.db")
+    val prefs = Prefs(app, "focus_prefs$storageSuffix")
+    val settings = SettingsRepository(app, "focus_settings$storageSuffix")
     val activities = ActivityRepository(database, wallClock)
     val history = HistoryRepository(database)
+    val facts = SessionFactsRepository(database)
+    val completionFeedback = CompletionFeedback(app)
+
+    /** One-off messages shown as snackbars by the root screen. */
+    val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
     val engine = SessionEngine(
         scope = appScope,

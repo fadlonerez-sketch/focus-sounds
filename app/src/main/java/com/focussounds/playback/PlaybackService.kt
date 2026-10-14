@@ -19,6 +19,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.focussounds.FocusApp
 import com.focussounds.R
+import com.focussounds.core.EndReason
 import com.focussounds.core.SessionEngine
 import com.focussounds.ui.MainActivity
 import com.google.common.util.concurrent.Futures
@@ -84,6 +85,17 @@ class PlaybackService : MediaSessionService() {
             .setMediaButtonPreferences(listOf(stopButton))
             .setCallback(SessionCallback(engine))
             .build()
+
+        // Optional chime/vibration when a timer completes (wherever the user is: locked, other app).
+        val container = (application as FocusApp).container
+        scope.launch {
+            engine.state.map { it.lastResult }.distinctUntilChanged { a, b -> a?.id == b?.id }.drop(1).collect { r ->
+                if (r?.reason == EndReason.COMPLETED) {
+                    val s = container.settings.current
+                    container.completionFeedback.onSessionCompleted(s.completionChime, s.completionVibration)
+                }
+            }
+        }
 
         // When a session ends (stop, timer, error) leave the foreground and stop the service.
         // It stays alive only while the app's UI is still bound to it.

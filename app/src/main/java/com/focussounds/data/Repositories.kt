@@ -11,7 +11,11 @@ import com.focussounds.core.SessionRowState
 import com.focussounds.core.SessionStore
 import com.focussounds.core.WallClock
 import com.focussounds.core.cleanActivityName
+import com.focussounds.core.ActiveSession
+import com.focussounds.core.analytics.SessionFact
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 class RoomSessionStore(private val db: FocusDatabase) : SessionStore {
@@ -122,8 +126,8 @@ class HistoryRepository(db: FocusDatabase) {
 }
 
 /** Small UI preferences (last selections, volume). Session data never goes here. */
-class Prefs(context: Context) {
-    private val sp = context.getSharedPreferences("focus_prefs", Context.MODE_PRIVATE)
+class Prefs(context: Context, fileName: String = "focus_prefs") {
+    private val sp = context.getSharedPreferences(fileName, Context.MODE_PRIVATE)
 
     var volume: Float
         get() = sp.getFloat("volume", SessionEngine.DEFAULT_VOLUME)
@@ -145,4 +149,43 @@ class Prefs(context: Context) {
     var askedNotificationPermission: Boolean
         get() = sp.getBoolean("asked_notifications", false)
         set(v) = sp.edit().putBoolean("asked_notifications", v).apply()
+}
+
+/** Sessions as analytics facts. Mapping runs off the main thread. */
+class SessionFactsRepository(private val db: FocusDatabase) {
+    /** Every persisted session, oldest first. Rows still marked active carry outcome = null. */
+    val all: Flow<List<SessionFact>> = db.sessionDao().observeFactRows()
+        .map { rows -> rows.map(::toFact) }
+        .flowOn(Dispatchers.Default)
+
+    suspend fun clearFinished(): Int = db.sessionDao().deleteFinished()
+
+    companion object {
+        fun toFact(r: FactRow) = SessionFact(
+            id = r.id,
+            activityKey = SessionFact.activityKeyFor(r.activityId, r.activityName),
+            activityName = r.currentActivityName ?: r.activityName,
+            activityDeleted = r.activityId == null,
+            soundId = r.soundId,
+            startedAtMs = r.startedAtMs,
+            endedAtMs = r.endedAtMs,
+            plannedDurationMs = r.plannedDurationMs,
+            activeMs = r.activeDurationMs,
+            outcome = if (r.state == SessionRowState.ACTIVE.key) null else EndReason.fromKey(r.endReason),
+        )
+
+        /** The running session as a fact, with its live active time (never read from a stale checkpoint). */
+        fun liveFact(s: ActiveSession, nowElapsedMs: Long) = SessionFact(
+            id = s.id,
+            activityKey = SessionFact.activityKeyFor(s.activityId, s.activityName),
+            activityName = s.activityName,
+            activityDeleted = s.activityId == null,
+            soundId = s.sound.id,
+            startedAtMs = s.startedAtWallMs,
+            endedAtMs = null,
+            plannedDurationMs = s.plannedDurationMs,
+            activeMs = s.activeMs(nowElapsedMs),
+            outcome = null,
+        )
+    }
 }

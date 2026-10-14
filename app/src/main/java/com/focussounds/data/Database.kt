@@ -70,6 +70,20 @@ data class HistoryRow(
     val currentActivityName: String?,
 )
 
+data class FactRow(
+    val id: String,
+    val activityId: Long?,
+    val activityName: String,
+    val currentActivityName: String?,
+    val soundId: String,
+    val startedAtMs: Long,
+    val endedAtMs: Long?,
+    val plannedDurationMs: Long?,
+    val activeDurationMs: Long,
+    val state: String,
+    val endReason: String?,
+)
+
 @Dao
 interface ActivityDao {
     @Query("SELECT * FROM activities ORDER BY builtInKey IS NULL, id")
@@ -127,6 +141,18 @@ interface SessionDao {
     )
     fun observeHistory(): Flow<List<HistoryRow>>
 
+    /** Lightweight projection for analytics/history; includes the activity's current name. */
+    @Query(
+        "SELECT s.id, s.activityId, s.activityName, a.name AS currentActivityName, s.soundId, s.startedAtMs, " +
+            "s.endedAtMs, s.plannedDurationMs, s.activeDurationMs, s.state, s.endReason FROM sessions s " +
+            "LEFT JOIN activities a ON a.id = s.activityId ORDER BY s.startedAtMs",
+    )
+    fun observeFactRows(): Flow<List<FactRow>>
+
+    /** Deletes finished sessions only; a session that is running right now is never touched. */
+    @Query("DELETE FROM sessions WHERE state = 'finished'")
+    suspend fun deleteFinished(): Int
+
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun get(id: String): SessionEntity?
 
@@ -140,8 +166,8 @@ abstract class FocusDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
     companion object {
-        fun open(context: Context): FocusDatabase =
-            Room.databaseBuilder(context, FocusDatabase::class.java, "focus.db").build()
+        fun open(context: Context, name: String = "focus.db"): FocusDatabase =
+            Room.databaseBuilder(context, FocusDatabase::class.java, name).build()
 
         fun inMemory(context: Context): FocusDatabase =
             Room.inMemoryDatabaseBuilder(context, FocusDatabase::class.java).build()

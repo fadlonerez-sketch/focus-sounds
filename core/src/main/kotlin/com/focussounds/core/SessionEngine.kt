@@ -55,6 +55,7 @@ data class SessionResult(
     val plannedDurationMs: Long?,
     val reason: EndReason,
     val detail: String? = null,
+    val startedAtWallMs: Long = 0,
 )
 
 data class EngineState(
@@ -262,7 +263,7 @@ class SessionEngine(
         _state.update {
             it.copy(
                 active = null,
-                lastResult = SessionResult(s.id, s.sound, s.activityName, activeMs, s.plannedDurationMs, reason, detail),
+                lastResult = SessionResult(s.id, s.sound, s.activityName, activeMs, s.plannedDurationMs, reason, detail, s.startedAtWallMs),
             )
         }
         enqueue { store.finish(s.id, activeMs, endedAt, reason) }

@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Android 13+: lets the playback notification be shown when the user allows it. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Optional gentle vibration when a timed session completes (user setting). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- The app is fully offline and never records audio: make sure no library adds these. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />

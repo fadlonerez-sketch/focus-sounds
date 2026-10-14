@@ -2,30 +2,36 @@ package com.focussounds.ui
 
 import android.Manifest
 import android.content.ComponentName
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.focussounds.FocusApp
 import com.focussounds.playback.PlaybackService
+import com.focussounds.ui.screens.ActivitiesViewModel
+import com.focussounds.ui.screens.HistoryViewModel
+import com.focussounds.ui.screens.ProgressViewModel
+import com.focussounds.ui.screens.SettingsViewModel
+import com.focussounds.ui.theme.FocusTheme
 import com.google.common.util.concurrent.ListenableFuture
 
 class MainActivity : ComponentActivity() {
 
     private val container by lazy { (application as FocusApp).container }
-    private val vm: FocusViewModel by viewModels { FocusViewModel.factory(container) }
+    private val focusVm: FocusViewModel by viewModels { FocusViewModel.factory(container) }
+    private val progressVm: ProgressViewModel by viewModels { ProgressViewModel.factory(container) }
+    private val historyVm: HistoryViewModel by viewModels { HistoryViewModel.factory(container) }
+    private val activitiesVm: ActivitiesViewModel by viewModels { ActivitiesViewModel.factory(container) }
+    private val settingsVm: SettingsViewModel by viewModels { SettingsViewModel.factory(container) }
 
     /**
      * Connecting a controller binds (and so creates) the playback service while the UI is visible,
@@ -34,21 +40,20 @@ class MainActivity : ComponentActivity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
 
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.start() }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { focusVm.requestStart() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Always dark: light status/navigation bar icons on a dark background, whatever the system theme.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        val vms = AppViewModels(focusVm, progressVm, historyVm, activitiesVm, settingsVm)
         setContent {
-            val ctx = LocalContext.current
-            val dark = isSystemInDarkTheme()
-            val scheme = when {
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-                dark -> darkColorScheme()
-                else -> lightColorScheme()
-            }
-            MaterialTheme(colorScheme = scheme) {
-                FocusRoot(vm, onStartRequested = ::onStartRequested)
+            val settings by container.settings.settings.collectAsStateWithLifecycle()
+            FocusTheme(accentArgb = settings.accentArgb, motionLevel = settings.motion, hapticsEnabled = settings.haptics) {
+                AppRoot(vms, container.messages, onStartRequested = ::onStartRequested)
             }
         }
     }
@@ -59,7 +64,7 @@ class MainActivity : ComponentActivity() {
             container.prefs.askedNotificationPermission = true
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            vm.start()
+            focusVm.requestStart()
         }
     }
 
@@ -70,6 +75,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        // Playback may only be started from the foreground, so a pending countdown is cancelled.
+        focusVm.cancelCountdown()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
         super.onStop()

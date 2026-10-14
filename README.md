@@ -35,10 +35,10 @@ Offline only: no account, backend, API key, analytics, cloud sync, or network pe
 - An in-app "How Progress is calculated" section explains every rule.
 
 **History, Activities and Settings**
-- **History:** day separators with daily totals; filters by date, activity, sound and outcome; outcome labels; midnight-crossing marker.
+- **History:** a full session library with no cap. Every session is listed newest first, grouped by day under pinned date headers, with a Today / Last 7 days / All time summary, filters by date, activity, sound and outcome, and a Back to top button for long histories. Each finished session has a visible delete button, and tapping a row opens its details with a Delete session action. Deleting asks for confirmation. A running session has no delete action, and the database query refuses it too.
 - **Activities:** built-in versus custom, rename and delete with a confirmation that explains history is kept, and per-activity totals.
 - **Settings:**
-  - *Appearance:* always dark. Accent color via an HSV picker, HEX entry with validation, 10 presets, live preview, Apply/Cancel, and Reset to default. Animation intensity (Full / Reduced / Off) and haptics.
+  - *Appearance:* always dark, with an abstract night-landscape backdrop on Focus (sky light only on Progress) drawn in Compose from the accent. Its colors are capped so secondary text keeps 4.5:1 contrast anywhere on it (text drawn directly on the landscape uses that color or brighter); it has no looping animation and only redraws when the accent or screen changes. Accent color via an HSV picker, HEX entry with validation, 10 presets, live preview, Apply/Cancel, and Reset to default. Animation intensity (Full / Reduced / Off) and haptics.
   - *Goals:* daily and weekly goals, and goal milestones.
   - *Focus:* remember last selection or use defaults; start countdown; completion chime and vibration.
   - *Data & privacy:* CSV export through the system file picker, and clear history (confirmed, never touches a running session).

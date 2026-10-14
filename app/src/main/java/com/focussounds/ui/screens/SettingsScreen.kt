@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,13 +29,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,7 +48,8 @@ import com.focussounds.ui.components.Eyebrow
 import com.focussounds.ui.components.FocusCard
 import com.focussounds.ui.components.HairlineDivider
 import com.focussounds.ui.components.ScreenPadding
-import com.focussounds.ui.components.SectionHeader
+import com.focussounds.ui.components.SectionLabel
+import com.focussounds.ui.components.ScreenHeader
 import com.focussounds.ui.components.SegmentOption
 import com.focussounds.ui.components.SegmentedControl
 import com.focussounds.ui.components.SelectChip
@@ -78,20 +76,14 @@ fun SettingsScreen(vm: SettingsViewModel) {
     LazyColumn(
         Modifier.fillMaxSize().testTag("settings_list"),
         contentPadding = PaddingValues(start = ScreenPadding, end = ScreenPadding, top = 8.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            Column(Modifier.padding(top = 8.dp)) {
-                Text("Settings", style = MaterialTheme.typography.headlineSmall, color = c.textPrimary, modifier = Modifier.semantics { heading() })
-                Text("Everything here is stored on this device.", style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-            }
-        }
+        item { ScreenHeader("Settings", subtitle = "Everything here is stored on this device.") }
 
         // ------------------------------------------------ Appearance
+        item { SectionLabel("Appearance") }
         item {
             FocusCard(Modifier.fillMaxWidth().testTag("appearance_card")) {
-                SectionHeader("Appearance")
-                Spacer(Modifier.height(8.dp))
                 SettingRow(
                     title = "Accent color",
                     description = "${ColorMath.toHex(s.accentArgb)} · used for buttons, selections, charts and progress",
@@ -112,7 +104,11 @@ fun SettingsScreen(vm: SettingsViewModel) {
                 }
                 Spacer(Modifier.height(14.dp))
                 AppearancePreview(Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
+            }
+        }
+        item { SectionLabel("Display & motion") }
+        item {
+            FocusCard(Modifier.fillMaxWidth().testTag("motion_settings")) {
                 SettingRow("Dark theme", description = "Focus Sounds always uses its dark theme, whatever the system setting.", icon = AppIcons.Moon)
                 HairlineDivider()
                 Spacer(Modifier.height(10.dp))
@@ -123,7 +119,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                         MotionLevel.REDUCED -> "Shorter transitions; no ambient breathing effect."
                         MotionLevel.OFF -> "No animations: everything changes instantly."
                     },
-                    style = MaterialTheme.typography.bodySmall, color = c.textTertiary,
+                    style = MaterialTheme.typography.bodySmall, color = c.textSecondary,
                 )
                 Spacer(Modifier.height(8.dp))
                 SegmentedControl(MotionLevel.entries.map { SegmentOption(it, it.label) }, s.motion, { m -> vm.update { it.copy(motion = m) } })
@@ -134,9 +130,10 @@ fun SettingsScreen(vm: SettingsViewModel) {
         }
 
         // ------------------------------------------------ Goals
+        item { SectionLabel("Goals") }
         item {
             FocusCard(Modifier.fillMaxWidth().testTag("goals_settings")) {
-                SectionHeader("Goals", subtitle = "Only actual playing time counts toward goals")
+                Text("Only actual playing time counts toward goals.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
                 Spacer(Modifier.height(4.dp))
                 SettingRow("Daily goal", description = goalText(s.dailyGoalMinutes, "per day"), icon = AppIcons.Goal, onClick = { goal = GoalKind.DAILY }) {
                     Icon(AppIcons.ChevronRight, null, tint = c.textTertiary)
@@ -150,16 +147,15 @@ fun SettingsScreen(vm: SettingsViewModel) {
         }
 
         // ------------------------------------------------ Focus behavior
+        item { SectionLabel("Focus") }
         item {
             FocusCard(Modifier.fillMaxWidth().testTag("focus_settings")) {
-                SectionHeader("Focus")
-                Spacer(Modifier.height(4.dp))
                 SwitchRow("Remember last selection", s.rememberLastSelection, { on -> vm.update { it.copy(rememberLastSelection = on) } },
                     description = if (s.rememberLastSelection) "The app opens with the activity, sound and timer you used last." else "The app opens with the defaults below.",
                     icon = AppIcons.Reset)
                 if (!s.rememberLastSelection) {
                     Spacer(Modifier.height(6.dp))
-                    Text("Default timer", style = MaterialTheme.typography.labelMedium, color = c.textTertiary)
+                    Text("Default timer", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
                     Spacer(Modifier.height(6.dp))
                     val custom = s.defaultTimerMinutes.takeIf { it != 0 && it !in Limits.PRESET_MINUTES }
                     SegmentedControl(
@@ -169,7 +165,7 @@ fun SettingsScreen(vm: SettingsViewModel) {
                         { m -> if (m == -1) customDefaultTimer = true else vm.update { it.copy(defaultTimerMinutes = m) } },
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text("Default sound", style = MaterialTheme.typography.labelMedium, color = c.textTertiary)
+                    Text("Default sound", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
                     Spacer(Modifier.height(6.dp))
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FocusSound.entries.forEach { snd ->
@@ -198,10 +194,9 @@ fun SettingsScreen(vm: SettingsViewModel) {
         }
 
         // ------------------------------------------------ Data & privacy
+        item { SectionLabel("Data & privacy") }
         item {
             FocusCard(Modifier.fillMaxWidth().testTag("data_settings")) {
-                SectionHeader("Data & privacy")
-                Spacer(Modifier.height(8.dp))
                 Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(c.surface2).padding(12.dp)) {
                     Icon(AppIcons.Shield, null, Modifier.size(20.dp), tint = c.accentContent)
                     Spacer(Modifier.width(12.dp))
@@ -229,10 +224,9 @@ fun SettingsScreen(vm: SettingsViewModel) {
         }
 
         // ------------------------------------------------ About
+        item { SectionLabel("About") }
         item {
             FocusCard(Modifier.fillMaxWidth()) {
-                SectionHeader("About")
-                Spacer(Modifier.height(4.dp))
                 SettingRow("Focus Sounds", description = "Version ${vm.versionName} · works fully offline", icon = AppIcons.Info)
                 SettingRow("Sounds", description = "Brown and White Noise are generated by the app's own build scripts. " +
                     "Ocean, Stream and Forest are CC0 recordings by craiggroshek, turbostream and klankbeeld (freesound.org).", icon = AppIcons.Volume)

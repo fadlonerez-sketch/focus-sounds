@@ -113,6 +113,34 @@ object ColorMath {
     fun bestOnColor(background: Int): Int =
         if (contrastRatio(WHITE, background) >= contrastRatio(BLACK, background)) WHITE else BLACK
 
+    private fun toLinear(v: Int): Double {
+        val s = v / 255.0
+        return if (s <= 0.04045) s / 12.92 else ((s + 0.055) / 1.055).pow(2.4)
+    }
+
+    private fun toSrgb(linear: Double): Int {
+        val l = linear.coerceIn(0.0, 1.0)
+        val s = if (l <= 0.0031308) l * 12.92 else 1.055 * l.pow(1 / 2.4) - 0.055
+        return (s * 255).roundToInt()
+    }
+
+    /**
+     * [color] scaled in linear light (hue and chromaticity kept) to [luminance], rounded down so the
+     * result never exceeds it. A black [color] has no hue to keep, so [fallback] is scaled instead.
+     */
+    fun withLuminance(color: Int, luminance: Double, fallback: Int = BLACK): Int {
+        val source = if (relativeLuminance(color) > 0.0) color else fallback
+        val current = relativeLuminance(source)
+        if (current <= 0.0) return source
+        var k = luminance / current
+        var result: Int
+        do {
+            result = rgb(toSrgb(toLinear(red(source)) * k), toSrgb(toLinear(green(source)) * k), toSrgb(toLinear(blue(source)) * k))
+            k *= 0.98
+        } while (relativeLuminance(result) > luminance && k > 1e-4)
+        return result
+    }
+
     const val WHITE = 0xFFFFFFFF.toInt()
     const val INK = 0xFF0B0C0F.toInt()
     const val BLACK = 0xFF000000.toInt()
@@ -166,6 +194,63 @@ fun categoricalColors(accent: Int, count: Int, surface: Int): List<Int> {
             val hue = h + i * 137.508f
             val value = if (i % 2 == 0) 0.92f else 0.8f
             ColorMath.ensureContrastOnDark(ColorMath.fromHsv(hue, sat, value), surface, 3.0)
+        }
+    }
+}
+
+/**
+ * Colors for the atmospheric night backdrop, all derived from the accent fill.
+ *
+ * Every color (except the tiny [star] points) is darkened with its hue kept until its relative
+ * luminance is at most `maxLuminance`. Gradients and alpha blends between such colors can never be
+ * brighter than the brightest of them, so text that stays legible against a color of
+ * `maxLuminance` stays legible anywhere on the backdrop. The app sets the cap so secondary text
+ * keeps 4.5:1; text drawn directly on the backdrop therefore uses the secondary color or brighter.
+ */
+data class BackdropPalette(
+    val skyTop: Int,
+    val skyHorizon: Int,
+    /** Brightest light: the glow behind the horizon. Exactly at the luminance cap. */
+    val glow: Int,
+    /** Light catching the ridge crests. */
+    val rim: Int,
+    val fog: Int,
+    val farRidge: Int,
+    val midRidge: Int,
+    val nearRidge: Int,
+    /** Sub-2dp decorative points; the only color allowed above the cap. */
+    val star: Int,
+) {
+    val capped: List<Int> get() = listOf(skyTop, skyHorizon, glow, rim, fog, farRidge, midRidge, nearRidge)
+
+    companion object {
+        private const val NEUTRAL = 0xFF808080.toInt()
+
+        /** Highest backdrop luminance at which [text] still reaches [minRatio] contrast. */
+        fun maxLuminanceFor(text: Int, minRatio: Double): Double =
+            (ColorMath.relativeLuminance(text) + 0.05) / minRatio - 0.05
+
+        fun derive(accent: Int, background: Int, maxLuminance: Double): BackdropPalette {
+            val bgL = ColorMath.relativeLuminance(background)
+            // Night colors read richer than the (often pastel) accent itself: boost its saturation.
+            val (h, sat, v) = ColorMath.toHsv(accent).let { Triple(it[0], it[1], it[2]) }
+            val rich = if (sat < 0.05f) accent else ColorMath.fromHsv(h, minOf(1f, sat * 1.45f + 0.1f), v)
+            // [chroma] keeps that share of the color (the rest is neutral gray).
+            fun tone(chroma: Float, luminance: Double) =
+                ColorMath.withLuminance(ColorMath.blend(rich, NEUTRAL, chroma), minOf(luminance, maxLuminance), background)
+            return BackdropPalette(
+                skyTop = tone(0.5f, bgL * 1.5),
+                skyHorizon = tone(0.75f, maxLuminance * 0.42),
+                glow = tone(1f, maxLuminance),
+                rim = tone(0.85f, maxLuminance * 0.9),
+                fog = tone(0.5f, maxLuminance * 0.62),
+                // Atmospheric perspective: each ridge is about half as bright as the one behind
+                // it, so the layers stay distinct; the nearest is close to the plain background.
+                farRidge = tone(0.7f, maxLuminance * 0.36),
+                midRidge = tone(0.6f, maxLuminance * 0.18),
+                nearRidge = tone(0.45f, maxOf(bgL * 1.15, maxLuminance * 0.08)),
+                star = ColorMath.withLuminance(ColorMath.blend(rich, ColorMath.WHITE, 0.7f), 0.12, background),
+            )
         }
     }
 }

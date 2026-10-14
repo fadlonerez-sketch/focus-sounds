@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -42,8 +41,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -79,6 +76,9 @@ import com.focussounds.ui.components.Pill
 import com.focussounds.ui.components.PrimaryButton
 import com.focussounds.ui.components.ProgressRing
 import com.focussounds.ui.components.ScreenPadding
+import com.focussounds.ui.components.PillShape
+import com.focussounds.ui.components.SectionLabel
+import com.focussounds.ui.components.ScreenHeader
 import com.focussounds.ui.components.SecondaryButton
 import com.focussounds.ui.components.SectionHeader
 import com.focussounds.ui.components.SegmentOption
@@ -141,8 +141,10 @@ fun ProgressScreen(vm: ProgressViewModel, onStartFocus: () -> Unit) {
         item(key = "goals") { GoalsCard(r, state.dailyGoalMinutes, state.weeklyGoalMinutes) { goalEditor = it } }
         item(key = "metrics") { MetricsGrid(r) }
         if (r.insights.isNotEmpty()) item(key = "insights") { InsightsCard(r) }
+        item(key = "trends_label") { SectionLabel("Trends") }
         item(key = "trend") { TrendCard(r, vm::setTrendResolution) }
         if (r.barResolution != null) item(key = "bars") { BarsCard(r, vm::setBarResolution) }
+        item(key = "breakdown_label") { SectionLabel("Breakdown") }
         item(key = "activities") { ActivitiesCard(r.activities) }
         item(key = "calendar") { CalendarCard(state, vm) }
         item(key = "sounds") { SoundsCard(r) }
@@ -170,14 +172,11 @@ enum class GoalKind { DAILY, WEEKLY }
 @Composable
 private fun ProgressHeader(r: ProgressReport) {
     val c = FocusTheme.colors
-    Column(Modifier.padding(top = 8.dp)) {
-        Text("Progress", style = MaterialTheme.typography.headlineSmall, color = c.textPrimary, modifier = Modifier.semantics { heading() })
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(rangeLabel(r.range, r.today), style = MaterialTheme.typography.bodyMedium, color = c.textSecondary)
-            if (r.includesRunningSession) {
-                Spacer(Modifier.width(8.dp))
-                Pill("Live session included", c.accentContent)
-            }
+    Column {
+        ScreenHeader("Progress", subtitle = rangeLabel(r.range, r.today))
+        if (r.includesRunningSession) {
+            // On an opaque base: the header sits over the sky light.
+            Box(Modifier.padding(top = 6.dp).clip(PillShape).background(c.surface1)) { Pill("Live session included", c.accentContent) }
         }
     }
 }
@@ -186,7 +185,7 @@ private fun ProgressHeader(r: ProgressReport) {
 private fun HeroCard(r: ProgressReport) {
     val c = FocusTheme.colors
     val o = r.overview
-    FocusCard(Modifier.fillMaxWidth().testTag("hero_card"), padding = PaddingValues(20.dp)) {
+    FocusCard(Modifier.fillMaxWidth().testTag("hero_card"), padding = PaddingValues(22.dp), accentWash = true) {
         Eyebrow("Focus time · ${if (r.preset == RangePreset.CUSTOM) "${r.range.days} days" else r.preset.label}")
         Spacer(Modifier.height(6.dp))
         Text(Durations.format(o.totalMs), style = MaterialTheme.typography.displaySmall, color = c.textPrimary, modifier = Modifier.testTag("hero_total"))
@@ -210,9 +209,9 @@ private fun HeroCard(r: ProgressReport) {
 private fun HeroStat(label: String, value: String, modifier: Modifier, sub: String? = null) {
     val c = FocusTheme.colors
     Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = c.textTertiary, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = c.textSecondary, maxLines = 1)
         Text(value, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = c.textTertiary, maxLines = 1)
+        if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = c.textSecondary, maxLines = 1)
     }
 }
 
@@ -222,7 +221,7 @@ private fun ComparisonLine(cmp: Comparison) {
     val pct = cmp.changeFraction
     Column {
         when {
-            cmp.previousNotFullyTracked -> Text("Not enough history yet to compare with ${cmp.label}.", style = MaterialTheme.typography.bodySmall, color = c.textTertiary)
+            cmp.previousNotFullyTracked -> Text("Not enough history yet to compare with ${cmp.label}.", style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
             pct != null -> Row(verticalAlignment = Alignment.CenterVertically) {
                 val up = cmp.deltaMs > 0
                 val same = cmp.deltaMs == 0L
@@ -245,7 +244,7 @@ private fun ComparisonLine(cmp: Comparison) {
                 style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         if (cmp.cutAtSameTime && !cmp.previousNotFullyTracked) {
-            Text("Compared up to the same time of day.", style = MaterialTheme.typography.labelSmall, color = c.textTertiary)
+            Text("Compared up to the same time of day.", style = MaterialTheme.typography.labelSmall, color = c.textSecondary)
         }
     }
 }

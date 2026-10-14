@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.focussounds.core.AccentPalette
+import com.focussounds.core.BackdropPalette
 import com.focussounds.core.ColorMath
 import com.focussounds.core.categoricalColors
 import com.focussounds.data.MotionLevel
@@ -75,6 +76,8 @@ data class FocusColors(
     val neutral: Color,
     /** Categorical series colors starting with the accent. */
     val series: List<Color>,
+    /** The accent-tinted night landscape behind Focus and Progress. */
+    val backdrop: BackdropColors,
 ) {
     fun seriesColor(i: Int): Color = series[i % series.size]
 
@@ -100,6 +103,36 @@ data class FocusColors(
                 danger = Neutrals.Danger,
                 neutral = Neutrals.Neutral,
                 series = categoricalColors(p.fill, 8, Neutrals.Surface1.toArgb()).map { Color(it) },
+                backdrop = BackdropColors.from(p.fill),
+            )
+        }
+    }
+}
+
+/**
+ * Backdrop colors for one accent. Capped so that secondary text keeps 4.5:1 contrast anywhere on
+ * the backdrop (see [BackdropPalette]); text placed directly on it uses textSecondary or brighter.
+ */
+@Immutable
+data class BackdropColors(
+    val skyTop: Color,
+    val skyHorizon: Color,
+    val glow: Color,
+    val rim: Color,
+    val fog: Color,
+    val farRidge: Color,
+    val midRidge: Color,
+    val nearRidge: Color,
+    val star: Color,
+) {
+    companion object {
+        val MaxLuminance = BackdropPalette.maxLuminanceFor(Neutrals.TextSecondary.toArgb(), 4.5)
+
+        fun from(accentFillArgb: Int): BackdropColors {
+            val p = BackdropPalette.derive(accentFillArgb, Neutrals.Background.toArgb(), MaxLuminance)
+            return BackdropColors(
+                Color(p.skyTop), Color(p.skyHorizon), Color(p.glow), Color(p.rim), Color(p.fog),
+                Color(p.farRidge), Color(p.midRidge), Color(p.nearRidge), Color(p.star),
             )
         }
     }
@@ -154,9 +187,10 @@ private val AppTypography = Typography().let { t ->
         displayLarge = t.displayLarge.copy(fontWeight = FontWeight.Light, fontSize = 72.sp, lineHeight = 76.sp, letterSpacing = (-1.5).sp, fontFeatureSettings = "tnum"),
         displayMedium = t.displayMedium.copy(fontWeight = FontWeight.Light, fontSize = 48.sp, lineHeight = 54.sp, letterSpacing = (-1).sp, fontFeatureSettings = "tnum"),
         displaySmall = t.displaySmall.copy(fontWeight = FontWeight.Normal, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.5).sp, fontFeatureSettings = "tnum"),
+        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.6).sp),
         headlineSmall = t.headlineSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, letterSpacing = (-0.2).sp),
-        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 20.sp),
-        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
+        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.2).sp),
+        titleMedium = t.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = (-0.1).sp),
         titleSmall = t.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, letterSpacing = 0.1.sp),
         bodyLarge = t.bodyLarge.copy(fontSize = 16.sp),
         bodyMedium = t.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
@@ -190,7 +224,9 @@ fun FocusTheme(
     val accentContent by animateColorAsState(target.accentContent, spec, label = "accentContent")
     val accentContainer by animateColorAsState(target.accentContainer, spec, label = "accentContainer")
     val onAccent by animateColorAsState(target.onAccent, spec, label = "onAccent")
-    val colors = target.copy(accent = accent, accentContent = accentContent, accentContainer = accentContainer, onAccent = onAccent)
+    // Follows the animated fill, so the backdrop recolors in step with the rest of the app.
+    val backdrop = remember(accent) { BackdropColors.from(accent.toArgb()) }
+    val colors = target.copy(accent = accent, accentContent = accentContent, accentContainer = accentContainer, onAccent = onAccent, backdrop = backdrop)
 
     val scheme = darkColorScheme(
         primary = colors.accent,

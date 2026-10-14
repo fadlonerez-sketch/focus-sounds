@@ -58,6 +58,8 @@ object AppIcons {
     val Edit = icon("edit", "M14.5 5.5 L18.5 9.5 L9 19 L4.5 19.5 L5 15 Z", "M12.5 7.5 L16.5 11.5")
     val Trash = icon("trash", "M5 7 H19", "M9.5 7 V4.5 H14.5 V7", "M7 7 L8 19.5 H16 L17 7", "M10.5 10.5 V16", "M13.5 10.5 V16")
     val Volume = icon("volume", "M4 9.5 H7.5 L12 5.5 V18.5 L7.5 14.5 H4 Z", "M15.5 9 Q17.5 12 15.5 15", "M18 6.5 Q21.8 12 18 17.5")
+    val VolumeOff = icon("volume_off", "M4 9.5 H7.5 L12 5.5 V18.5 L7.5 14.5 H4 Z", "M15.5 9.5 L20.5 14.5", "M20.5 9.5 L15.5 14.5")
+    val ArrowUp = icon("arrow_up", "M12 19 V5", "M6 11 L12 5 L18 11")
     val Timer = icon("timer", c(12f, 13.5f, 7f), "M12 13.5 V10", "M10 3.5 H14", "M12 3.5 V6.5", "M18 6.5 L19.5 5")
     val Infinity = icon("infinity", "M12 12 C10 9 5.5 8.5 5.5 12 C5.5 15.5 10 15 12 12 C14 9 18.5 8.5 18.5 12 C18.5 15.5 14 15 12 12 Z")
     val Flame = icon("flame", "M12 21 C8 21 5.5 18.2 5.5 15 C5.5 11 9 9.5 9.5 4.5 C12 6.5 13.5 9 13 11.5 C14.5 11 15.5 9.5 15.5 8.5 C17.5 10.5 18.5 12.7 18.5 15 C18.5 18.2 16 21 12 21 Z")

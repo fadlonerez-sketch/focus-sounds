@@ -37,12 +37,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,30 +54,80 @@ import androidx.compose.ui.unit.sp
 import com.focussounds.ui.theme.FocusTheme
 
 val ScreenPadding = 20.dp
-val CardShape = RoundedCornerShape(22.dp)
+val CardShape = RoundedCornerShape(24.dp)
+val ControlShape = RoundedCornerShape(16.dp)
+val PillShape = RoundedCornerShape(50)
 
-/** The standard raised card: layered surface, hairline outline, generous radius. */
+/** Opacity of "glass" surfaces that sit over the landscape: dark enough for text, light enough to feel layered. */
+const val GlassAlpha = 0.84f
+
+fun lerpColor(a: Color, b: Color, t: Float): Color = androidx.compose.ui.graphics.lerp(a, b, t)
+
+/**
+ * The standard raised card: a softly top-lit surface with a hairline whose upper edge catches the
+ * light, and a generous radius. [glass] lets the backdrop show through slightly (Focus only);
+ * [accentWash] tints the top of the card with the accent for the one card that leads a screen.
+ */
 @Composable
 fun FocusCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     selected: Boolean = false,
-    padding: PaddingValues = PaddingValues(18.dp),
+    padding: PaddingValues = PaddingValues(20.dp),
+    glass: Boolean = false,
+    accentWash: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = FocusTheme.colors
     val motion = FocusTheme.motion
     val border by animateColorAsState(if (selected) c.accent else c.outline, motion.spec(200), label = "cardBorder")
     val bg by animateColorAsState(if (selected) c.accentContainer else c.surface1, motion.spec(200), label = "cardBg")
+    val alpha = if (glass) GlassAlpha else 1f
+    val stroke = if (selected) Brush.verticalGradient(listOf(border, border)) else Brush.verticalGradient(listOf(c.outlineStrong, border.copy(alpha = 0.7f)))
     Column(
         modifier
             .clip(CardShape)
-            .background(bg)
-            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, border), CardShape)
+            .background(
+                Brush.verticalGradient(
+                    listOf((if (accentWash) lerpColor(bg, c.accentContainer, 0.75f) else lerpColor(bg, c.surface2, 0.55f)).copy(alpha = alpha), bg.copy(alpha = alpha)),
+                ),
+            )
+            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, stroke), CardShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(padding),
         content = content,
     )
+}
+
+/** Large page title with an optional subtitle and trailing action; the same on every screen. */
+@Composable
+fun ScreenHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    subtitleColor: Color = FocusTheme.colors.textSecondary,
+    trailing: @Composable (RowScope.() -> Unit)? = null,
+) {
+    val c = FocusTheme.colors
+    Row(modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.headlineMedium, color = c.textPrimary, modifier = Modifier.semantics { heading() })
+            if (subtitle != null) {
+                Spacer(Modifier.size(2.dp))
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = subtitleColor)
+            }
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(12.dp))
+            trailing()
+        }
+    }
+}
+
+/** Label above a group of rows or cards (outside the card), like an inset grouped list. */
+@Composable
+fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+    Eyebrow(text, modifier.padding(start = 4.dp, top = 12.dp, bottom = 0.dp).semantics { heading() }, color = FocusTheme.colors.textSecondary)
 }
 
 @Composable
@@ -97,12 +149,12 @@ fun SectionHeader(
 
 /** Small uppercase label above a group of controls. */
 @Composable
-fun Eyebrow(text: String, modifier: Modifier = Modifier) {
+fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color = FocusTheme.colors.textTertiary) {
     Text(
         text.uppercase(),
         modifier = modifier,
-        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
-        color = FocusTheme.colors.textTertiary,
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold),
+        color = color,
     )
 }
 
@@ -118,15 +170,16 @@ fun <T> SegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     fill: Boolean = true,
+    glass: Boolean = false,
 ) {
     val c = FocusTheme.colors
     val haptics = FocusTheme.haptics
     val scroll = rememberScrollState()
     Row(
         modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.surface2)
-            .border(1.dp, c.outline, RoundedCornerShape(16.dp))
+            .clip(ControlShape)
+            .background(c.surface1.copy(alpha = if (glass) GlassAlpha else 1f))
+            .border(1.dp, c.outline, ControlShape)
             .then(if (fill) Modifier.fillMaxWidth() else Modifier)
             .horizontalScroll(scroll)
             .padding(4.dp),
@@ -144,8 +197,8 @@ fun <T> SegmentedControl(
                         if (!isSel) haptics.tick()
                         onSelect(o.value)
                     }
-                    .heightIn(min = 40.dp)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .heightIn(min = 42.dp)
+                    .padding(horizontal = 13.dp, vertical = 9.dp)
                     .semantics { if (o.description != null) contentDescription = o.description },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
@@ -168,20 +221,22 @@ fun SelectChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     leading: @Composable (() -> Unit)? = null,
+    glass: Boolean = false,
 ) {
     val c = FocusTheme.colors
     val motion = FocusTheme.motion
-    val bg by animateColorAsState(if (selected) c.accentContainer else c.surface2, motion.spec(180), label = "chipBg")
+    val idle = c.surface1.copy(alpha = if (glass) GlassAlpha else 1f)
+    val bg by animateColorAsState(if (selected) c.accentContainer else idle, motion.spec(180), label = "chipBg")
     val border by animateColorAsState(if (selected) c.accent else c.outline, motion.spec(180), label = "chipBorder")
     val fg by animateColorAsState(if (selected) c.accentContent else c.textSecondary, motion.spec(180), label = "chipFg")
     Row(
         modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(PillShape)
             .background(bg)
-            .border(1.dp, border, RoundedCornerShape(14.dp))
+            .border(if (selected) 1.5.dp else 1.dp, border, PillShape)
             .selectable(selected, role = Role.RadioButton, onClick = onClick)
-            .heightIn(min = 40.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .heightIn(min = 44.dp)
+            .padding(start = if (leading != null) 8.dp else 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) {
@@ -227,9 +282,9 @@ fun MetricTile(
                 Icon(icon, null, Modifier.size(16.dp), tint = c.accentContent)
                 Spacer(Modifier.width(6.dp))
             }
-            Text(label, style = MaterialTheme.typography.labelMedium, color = c.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.size(6.dp))
+        Spacer(Modifier.size(8.dp))
         Text(value, style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"), color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (detail != null) {
             Text(detail, style = MaterialTheme.typography.bodySmall, color = c.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -298,12 +353,14 @@ fun PrimaryButton(
     val c = FocusTheme.colors
     val bg by animateColorAsState(if (enabled) c.accent else c.surface3, FocusTheme.motion.spec(200), label = "btnBg")
     val fg = if (enabled) c.onAccent else c.textTertiary
+    // A faint top highlight gives the fill some depth without a heavy gradient.
+    val top = if (enabled) lerpColor(bg, Color.White, 0.12f) else bg
     Row(
         modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(bg)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(top, bg)))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .heightIn(min = 56.dp)
+            .heightIn(min = 58.dp)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -328,9 +385,9 @@ fun SecondaryButton(
     val c = FocusTheme.colors
     Row(
         modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(ControlShape)
             .background(c.surface2)
-            .border(1.dp, c.outline, RoundedCornerShape(16.dp))
+            .border(1.dp, c.outlineStrong.copy(alpha = 0.7f), ControlShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 48.dp)
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -367,14 +424,14 @@ fun SettingRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(c.surface3), contentAlignment = Alignment.Center) {
-                Icon(icon, null, Modifier.size(19.dp), tint = c.accentContent)
+            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(c.accentContainer), contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(20.dp), tint = c.accentContent)
             }
             Spacer(Modifier.width(14.dp))
         }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = c.textPrimary)
-            if (description != null) Text(description, style = MaterialTheme.typography.bodySmall, color = c.textTertiary)
+            if (description != null) Text(description, style = MaterialTheme.typography.bodySmall, color = c.textSecondary)
         }
         if (trailing != null) {
             Spacer(Modifier.width(12.dp))

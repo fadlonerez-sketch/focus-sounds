@@ -151,6 +151,8 @@ class Prefs(context: Context, fileName: String = "focus_prefs") {
         set(v) = sp.edit().putBoolean("asked_notifications", v).apply()
 }
 
+enum class SessionDeleteResult { Deleted, Running, NotFound }
+
 /** Sessions as analytics facts. Mapping runs off the main thread. */
 class SessionFactsRepository(private val db: FocusDatabase) {
     /** Every persisted session, oldest first. Rows still marked active carry outcome = null. */
@@ -159,6 +161,17 @@ class SessionFactsRepository(private val db: FocusDatabase) {
         .flowOn(Dispatchers.Default)
 
     suspend fun clearFinished(): Int = db.sessionDao().deleteFinished()
+
+    /**
+     * Deletes the single session [id]. Running sessions are refused; nothing else (other sessions,
+     * activities) is touched. Every Flow over the sessions table re-emits afterwards.
+     */
+    suspend fun deleteSession(id: String): SessionDeleteResult = db.withTransaction {
+        val dao = db.sessionDao()
+        val row = dao.get(id) ?: return@withTransaction SessionDeleteResult.NotFound
+        if (row.state != SessionRowState.FINISHED.key) return@withTransaction SessionDeleteResult.Running
+        if (dao.deleteFinishedById(id) == 1) SessionDeleteResult.Deleted else SessionDeleteResult.NotFound
+    }
 
     companion object {
         fun toFact(r: FactRow) = SessionFact(

@@ -51,6 +51,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -68,7 +69,6 @@ import com.focussounds.core.ColorMath
 import com.focussounds.data.AppSettings
 import com.focussounds.ui.components.AppIcons
 import com.focussounds.ui.components.Eyebrow
-import com.focussounds.ui.components.FocusCard
 import com.focussounds.ui.components.PrimaryButton
 import com.focussounds.ui.components.ProgressRing
 import com.focussounds.ui.components.SecondaryButton
@@ -299,13 +299,18 @@ private fun HueBar(hue: Float, modifier: Modifier, onChange: (Float) -> Unit) {
 @Composable
 fun AppearancePreview(modifier: Modifier = Modifier) {
     val c = FocusTheme.colors
-    FocusCard(
+    // A flat inset panel (not a card inside a card) showing the accent on real components.
+    Column(
         modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(c.surface2)
+            .padding(16.dp)
             .clearAndSetSemantics { contentDescription = "Preview of the accent color on app components" }
             .pointerInput(Unit) {
-                // Swallow touches: the sample controls are illustrations only.
+                // The sample controls are illustrations only: swallow presses so they never react,
+                // but let movement through so the Settings list still scrolls when dragged here.
                 awaitPointerEventScope {
-                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { if (it.changedToDown()) it.consume() }
                 }
             },
     ) {
@@ -315,7 +320,7 @@ fun AppearancePreview(modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Preview", style = MaterialTheme.typography.labelMedium, color = c.textTertiary)
+                Text("Preview", style = MaterialTheme.typography.labelMedium, color = c.textSecondary)
                 Text("1 h 15 min today", style = MaterialTheme.typography.titleMedium, color = c.textPrimary)
                 Text("▲ 18% vs yesterday", style = MaterialTheme.typography.labelMedium, color = c.accentContent)
             }

@@ -153,6 +153,10 @@ interface SessionDao {
     @Query("DELETE FROM sessions WHERE state = 'finished'")
     suspend fun deleteFinished(): Int
 
+    /** Deletes one finished session. A running ('active') row is never deleted, even if asked by id. */
+    @Query("DELETE FROM sessions WHERE id = :id AND state = 'finished'")
+    suspend fun deleteFinishedById(id: String): Int
+
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun get(id: String): SessionEntity?
 

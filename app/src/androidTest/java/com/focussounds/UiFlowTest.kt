@@ -22,7 +22,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeUp
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.focussounds.core.Durations
 import com.focussounds.core.EndReason
@@ -165,6 +168,21 @@ class UiFlowTest {
     }
 
     @Test
+    fun settingsScrollsWhenDraggedOnTheAccentPreview() {
+        val before = c.settings.current.accentArgb
+        go("settings")
+        val preview = hasContentDescription("Preview of the accent color", substring = true)
+        rule.onNodeWithTag("settings_list").performScrollToNode(preview)
+        val top = rule.onNode(preview).fetchSemanticsNode().boundsInRoot.top
+        rule.onNode(preview).performTouchInput { swipeUp(startY = centerY, endY = 0f) }
+        rule.waitForIdle()
+        // The drag scrolled the list (the preview moved up) and pressed nothing inside it.
+        val after = rule.onNode(preview).fetchSemanticsNode().boundsInRoot.top
+        assertTrue("list scrolled: $top -> $after", after < top - 50)
+        assertEquals(before, c.settings.current.accentArgb)
+    }
+
+    @Test
     fun colorPickerValidatesHexAndApplies() {
         go("settings")
         rule.onNodeWithTag("accent_row").performClick()
@@ -224,11 +242,151 @@ class UiFlowTest {
         seed(0, 10, sound = "ocean")
         seed(1, 15, sound = "forest")
         go("history")
-        rule.waitUntil(5_000) { rule.onAllNodes(hasText(" Forest ·", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("Forest · ", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("Any sound").performClick()
         rule.onNodeWithText("Ocean").performClick()
-        rule.waitUntil(5_000) { rule.onAllNodes(hasText(" Forest ·", substring = true)).fetchSemanticsNodes().isEmpty() }
-        assertTrue(rule.onAllNodes(hasText(" Ocean ·", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("Forest · ", substring = true)).fetchSemanticsNodes().isEmpty() }
+        assertTrue(rule.onAllNodes(hasText("Ocean · ", substring = true)).fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithText("1 matching session", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun deletingASessionFromHistoryRefreshesHistoryAndProgress() {
+        seed(0, 25, id = "keep", outcome = EndReason.COMPLETED)
+        seed(0, 40, id = "doomed", sound = "ocean")
+        go("progress")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("hero_total")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("hero_total").assertTextEquals(Durations.format(65 * 60_000L))
+
+        go("history")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("delete_session_doomed")).fetchSemanticsNodes().isNotEmpty() }
+        // Cancel keeps everything.
+        rule.onNodeWithTag("delete_session_doomed").performClick()
+        rule.onNodeWithText("Delete this session?").assertIsDisplayed()
+        rule.onNodeWithText("Cancel").performClick()
+        rule.waitForIdle()
+        assertEquals(2, runBlocking { c.database.sessionDao().all() }.size)
+
+        rule.onNodeWithTag("delete_session_doomed").performClick()
+        rule.onNodeWithText("Delete").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("delete_session_doomed")).fetchSemanticsNodes().isEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("Session deleted")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(listOf("keep"), runBlocking { c.database.sessionDao().all() }.map { it.id })
+        rule.onNodeWithTag("delete_session_keep").assertIsDisplayed()
+
+        go("progress")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText(Durations.format(25 * 60_000L))).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("hero_total").assertTextEquals(Durations.format(25 * 60_000L))
+    }
+
+    @Test
+    fun theRunningSessionCannotBeDeleted() {
+        rule.waitUntil(10_000) { c.engine.state.value.playerAvailable }
+        rule.onNodeWithTag("start_button").assertIsEnabled().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Playing", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val id = c.engine.state.value.active!!.id
+        rule.waitUntil(3_000) { runBlocking { c.database.sessionDao().get(id) } != null }
+
+        go("history")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("Live")).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("no delete action on a running session", rule.onAllNodes(hasTestTag("delete_session_$id")).fetchSemanticsNodes().isEmpty())
+
+        // Even a direct request is refused while it runs.
+        onMain { com.focussounds.ui.screens.HistoryViewModel(c).deleteSession(id) }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("can't be deleted", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(id, c.engine.state.value.active?.id)
+        assertEquals("active", runBlocking { c.database.sessionDao().get(id) }?.state)
+
+        // Its details sheet explains why instead of offering a delete button.
+        rule.onNodeWithTag("session_$id").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_details")).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(rule.onAllNodes(hasTestTag("details_delete")).fetchSemanticsNodes().isEmpty())
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_details")).fetchSemanticsNodes().isEmpty() }
+
+        Thread.sleep(1_200)
+        go("focus")
+        rule.onNodeWithTag("stop_button").performClick()
+        go("history")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("delete_session_$id")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun deletingFromTheSessionDetailsSheet() {
+        seed(0, 25, id = "stay", outcome = EndReason.COMPLETED)
+        seed(1, 50, id = "sheet", sound = "forest")
+        go("history")
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_sheet")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("session_sheet").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("details_delete")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Delete session").assertIsDisplayed()
+        rule.onNodeWithTag("details_delete").performClick()
+        rule.onNodeWithText("Delete this session?").assertIsDisplayed()
+        rule.onNodeWithText("Delete").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_sheet")).fetchSemanticsNodes().isEmpty() }
+        assertEquals(listOf("stay"), runBlocking { c.database.sessionDao().all() }.map { it.id })
+    }
+
+    @Test
+    fun historyBrowsesAVeryLongLibraryWithoutLimits() {
+        // 400 days of sessions: far more than fits on screen; the oldest must still be reachable.
+        val zone = ZoneId.systemDefault()
+        runBlocking {
+            c.database.withTransaction {
+                val dao = c.database.sessionDao()
+                for (d in 0L until 400L) {
+                    val start = LocalDate.now(zone).minusDays(d).atTime(LocalTime.of(9, 0)).atZone(zone).toInstant().toEpochMilli()
+                    dao.insert(
+                        com.focussounds.data.SessionEntity(
+                            id = "lib-$d", activityId = 1, activityName = "Studying", soundId = "ocean", startedAtMs = start,
+                            endedAtMs = start + 30 * 60_000L, plannedDurationMs = null, activeDurationMs = 30 * 60_000L,
+                            state = "finished", endReason = "stopped", lastCheckpointMs = start + 30 * 60_000L,
+                        ),
+                    )
+                }
+            }
+        }
+        go("history")
+        rule.waitUntil(10_000) { rule.onAllNodes(hasTestTag("session_lib-0")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("400 sessions recorded", substring = true).assertIsDisplayed()
+
+        rule.onNodeWithTag("history_list").performScrollToNode(hasTestTag("session_lib-399"))
+        rule.onNodeWithTag("session_lib-399").assertIsDisplayed()
+        rule.onNodeWithTag("delete_session_lib-399").assertIsDisplayed()
+
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("back_to_top")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("back_to_top").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_lib-0")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("session_lib-0").assertIsDisplayed()
+    }
+
+    // ---------------------------------------------------------------- backdrop
+
+    /** Average tint of the strip behind the transparent status bar, where only the backdrop is drawn. */
+    private fun backdropTopTint(): Triple<Double, Double, Double> {
+        rule.waitForIdle()
+        val b = rule.onNodeWithTag("app_backdrop").captureToImage().asAndroidBitmap()
+        var r = 0.0; var g = 0.0; var bl = 0.0; var n = 0
+        for (y in 0 until minOf(16, b.height)) for (x in b.width / 2 until b.width) {
+            val p = b.getPixel(x, y)
+            r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; bl += p and 0xFF; n++
+        }
+        return Triple(r / n, g / n, bl / n)
+    }
+
+    @Test
+    fun backdropFollowsTheAccentAndSurvivesRestart() {
+        onMain { c.settings.update { it.copy(accentArgb = 0xFFFF7A6B.toInt()) } }
+        val (r1, g1, b1) = backdropTopTint()
+        assertTrue("coral accent: warm sky ($r1, $g1, $b1)", r1 > g1 + 2 && r1 > b1 + 2)
+
+        rule.activityRule.scenario.recreate()
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Ready to focus").fetchSemanticsNodes().isNotEmpty() }
+        val (r2, g2, b2) = backdropTopTint()
+        assertTrue("still warm after the activity is recreated ($r2, $g2, $b2)", r2 > g2 + 2 && r2 > b2 + 2)
+
+        onMain { c.settings.update { it.copy(accentArgb = 0xFF2DD4BF.toInt()) } }
+        val (r3, g3, b3) = backdropTopTint()
+        assertTrue("teal accent: cool sky right away ($r3, $g3, $b3)", g3 > r3 + 2 && b3 > r3 + 2)
     }
 }

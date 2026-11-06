@@ -25,7 +25,6 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.focussounds.core.Durations
 import com.focussounds.core.EndReason
@@ -301,7 +300,7 @@ class UiFlowTest {
         rule.onNodeWithTag("session_$id").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_details")).fetchSemanticsNodes().isNotEmpty() }
         assertTrue(rule.onAllNodes(hasTestTag("details_delete")).fetchSemanticsNodes().isEmpty())
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        pressBackInApp()
         rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session_details")).fetchSemanticsNodes().isEmpty() }
 
         Thread.sleep(1_200)

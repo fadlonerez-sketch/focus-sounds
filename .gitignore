@@ -10,3 +10,8 @@ captures/
 tools/sources/
 tools/work/
 __pycache__/
+# Signing keys and secrets never go in the repo.
+*.jks
+*.keystore
+.env
+*.log

@@ -66,6 +66,14 @@ class FocusViewModel(private val c: AppContainer) : ViewModel() {
     val countdown: StateFlow<Int?> = _countdown.asStateFlow()
     private var countdownJob: Job? = null
 
+    /**
+     * True while a session (or its pre-start countdown) is running. Changes only on start/stop,
+     * not on every engine tick, so the app shell does not recompose each second.
+     */
+    val sessionLive: StateFlow<Boolean> =
+        combine(engineState, countdown) { e, cd -> e.active != null || cd != null }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, engineState.value.active != null || countdown.value != null)
+
     private val _feedback = MutableStateFlow<SessionFeedback?>(null)
     val feedback: StateFlow<SessionFeedback?> = _feedback.asStateFlow()
 

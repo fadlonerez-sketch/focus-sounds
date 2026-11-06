@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,7 +89,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun ProgressScreen(vm: ProgressViewModel, onStartFocus: () -> Unit) {
@@ -252,6 +252,8 @@ private fun ComparisonLine(cmp: Comparison) {
 @Composable
 private fun GoalsCard(r: ProgressReport, dailyMin: Int, weeklyMin: Int, onEdit: (GoalKind) -> Unit) {
     val c = FocusTheme.colors
+    // Observed through the configuration so weekday initials follow a locale change.
+    val locale = LocalConfiguration.current.locales[0]
     FocusCard(Modifier.fillMaxWidth().testTag("goals_card")) {
         SectionHeader("Goals", subtitle = if (dailyMin == 0 && weeklyMin == 0) "Optional targets for daily or weekly focus" else null)
         Spacer(Modifier.height(12.dp))
@@ -273,7 +275,7 @@ private fun GoalsCard(r: ProgressReport, dailyMin: Int, weeklyMin: Int, onEdit: 
             Spacer(Modifier.height(8.dp))
             GoalStrip(days.map { d ->
                 GoalDot(
-                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    d.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
                     d.fraction.toFloat(),
                     d.met,
                     "${dayTitle(d.date, r.today)}: ${Durations.format(d.activeMs)}, ${if (d.met) "goal met" else "goal not met"}",

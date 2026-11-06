@@ -49,8 +49,6 @@ import com.focussounds.ui.screens.SettingsScreen
 import com.focussounds.ui.screens.SettingsViewModel
 import com.focussounds.ui.theme.FocusTheme
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 enum class Destination(val label: String, val icon: ImageVector) {
     FOCUS("Focus", AppIcons.Focus),
@@ -80,9 +78,7 @@ fun AppRoot(vms: AppViewModels, messages: SharedFlow<String>, onStartRequested: 
     // Keeps each tab's scroll position and local state while switching tabs.
     val holder = rememberSaveableStateHolder()
     // Only "is a session (or its countdown) running" matters here, not every engine tick.
-    val sessionLive by remember(vms.focus) {
-        combine(vms.focus.engineState, vms.focus.countdown) { e, cd -> e.active != null || cd != null }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(vms.focus.engineState.value.active != null || vms.focus.countdown.value != null)
+    val sessionLive by vms.focus.sessionLive.collectAsStateWithLifecycle()
     val scene = when (dest) {
         Destination.FOCUS -> if (sessionLive) BackdropScene.FOCUS_ACTIVE else BackdropScene.FOCUS_IDLE
         Destination.PROGRESS -> BackdropScene.PROGRESS

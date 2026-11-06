@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -69,6 +70,8 @@ fun CalendarHeatmap(
 ) {
     val c = FocusTheme.colors
     val haptics = FocusTheme.haptics
+    // Observed through the configuration so weekday initials follow a locale change.
+    val locale = LocalConfiguration.current.locales[0]
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPrev, enabled = month.canGoBack) {
@@ -87,7 +90,7 @@ fun CalendarHeatmap(
         Row(Modifier.fillMaxWidth()) {
             month.weeks.first().forEach { cell ->
                 Text(
-                    cell.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                    cell.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelSmall,
                     color = c.textTertiary,

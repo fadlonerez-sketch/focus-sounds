@@ -14,7 +14,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "2.0.0"
         // Uses a separate database/preferences so tests never touch real history.
         testInstrumentationRunner = "com.focussounds.FocusTestRunner"
     }

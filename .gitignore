@@ -6,7 +6,7 @@ build/
 .kotlin/
 captures/
 .cxx/
-# Downloaded source recordings are fetched by tools/fetch_sources.py (hash-verified), not committed.
+# Downloaded source recordings are fetched by tools/build_recordings.py (hash-verified), not committed.
 tools/sources/
 tools/work/
 __pycache__/
